@@ -58,11 +58,11 @@ namespace UnityEngine.Timeline
         /// <summary>
         /// Use this setting to offset each Animation Track based on a set position and orientation.
         /// </summary>
-        ApplyTransformOffsets,
+        ApplyTransformOffsets = 0,
         /// <summary>
         /// Use this setting to offset each Animation Track based on the current position and orientation in the scene.
         /// </summary>
-        ApplySceneOffsets,
+        ApplySceneOffsets = 1,
         /// <summary>
         /// Use this setting to offset root transforms based on the state of the animator.
         /// </summary>
@@ -73,7 +73,12 @@ namespace UnityEngine.Timeline
         /// If no controller is assigned, then all offsets are set to start from a fixed position and orientation, similar to ApplyTransformOffsets.
         /// In Auto mode, in most cases, root transforms are not affected by local scale or Animator.humanScale, unless the animator has an AnimatorController and Animator.applyRootMotion is set to true.
         /// </remarks>
-        Auto
+        Auto = 2,
+        
+        /// <summary>
+        /// Use this setting to offset each Animation Track based on a set position and orientation which will resolve in the local timeline transform.
+        /// </summary>
+        ApplyLocalTransformOffsets = 3,
     }
 
     // offset mode
@@ -86,6 +91,7 @@ namespace UnityEngine.Timeline
         SceneOffsetLegacy,
         SceneOffsetEditor, // scene offset mode in editor
         SceneOffsetLegacyEditor,
+        TransformLocalOffset
     }
 
     // separate from the enum to hide them from UI elements
@@ -813,6 +819,15 @@ namespace UnityEngine.Timeline
             return rootTrack.ApplyTrackOffset(graph, mixer, go, mode);
         }
 
+        internal static (Vector3 pos, Quaternion rot) ApplyTransformRotationAndPosOffset(Vector3 pos, Quaternion rot, Transform toApply)
+        {
+            pos = toApply.rotation*pos;//Add director world space rotation
+            pos += toApply.position;//add director world position offset;
+            rot *= toApply.rotation;//Apply director world rotation offset
+            return (pos, rot);
+        }
+        
+        
         Playable ApplyTrackOffset(PlayableGraph graph, Playable root, GameObject go, AppliedOffsetMode mode)
         {
 #if UNITY_EDITOR
@@ -825,10 +840,20 @@ namespace UnityEngine.Timeline
                 mode == AppliedOffsetMode.NoRootTransform
             )
                 return root;
-
-
+            
             var pos = position;
             var rot = rotation;
+            
+            if (mode == AppliedOffsetMode.TransformLocalOffset) //apply director world offsets
+            {
+                //Looks like the root is the timeline playable here
+                //Debug.Log($"Go at this stage is {go.name}", go);
+                var director = go.GetComponent<PlayableDirector>();
+                if (director != null)
+                {
+                    (pos, rot) = ApplyTransformRotationAndPosOffset(pos, rot, director.transform);
+                }
+            }
 
 #if UNITY_EDITOR
             // in the editor use the preview position to playback from if available
@@ -973,6 +998,9 @@ namespace UnityEngine.Timeline
 
             if (m_TrackOffset == TrackOffset.ApplyTransformOffsets)
                 return AppliedOffsetMode.TransformOffset;
+            
+            if (m_TrackOffset == TrackOffset.ApplyLocalTransformOffsets)
+                return AppliedOffsetMode.TransformLocalOffset;
 
             if (m_TrackOffset == TrackOffset.ApplySceneOffsets)
                 return (Application.isPlaying) ? AppliedOffsetMode.SceneOffset : AppliedOffsetMode.SceneOffsetEditor;

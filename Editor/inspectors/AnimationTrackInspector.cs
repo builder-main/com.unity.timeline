@@ -130,7 +130,7 @@ namespace UnityEditor.Timeline
             if (offsetMode == TrackOffset.ApplySceneOffsets)
                 return false;
 
-            if (offsetMode == TrackOffset.ApplyTransformOffsets)
+            if (offsetMode == TrackOffset.ApplyTransformOffsets || offsetMode == TrackOffset.ApplyLocalTransformOffsets )
                 return true;
 
             // Auto mode.
@@ -181,7 +181,7 @@ namespace UnityEditor.Timeline
             bool showWarning = false;
             if (!hasMultiple)
             {
-                if (offsetMode == TrackOffset.ApplyTransformOffsets)
+                if (offsetMode == TrackOffset.ApplyTransformOffsets || offsetMode == TrackOffset.ApplyLocalTransformOffsets)
                     Styles.OffsetModeTitle.tooltip = Styles.TransformOffsetInfo;
                 else if (offsetMode == TrackOffset.ApplySceneOffsets)
                     Styles.OffsetModeTitle.tooltip = Styles.SceneOffsetInfo;
@@ -389,12 +389,27 @@ namespace UnityEditor.Timeline
                 return;
 
             AnimationTrack animationTrack = target as AnimationTrack;
-            if (animationTrack != null && (animationTrack.trackOffset == TrackOffset.ApplyTransformOffsets) && m_OffsetEditMode != TimelineAnimationUtilities.OffsetEditMode.None)
+            if (animationTrack != null && 
+                animationTrack.trackOffset is TrackOffset.ApplyTransformOffsets or TrackOffset.ApplyLocalTransformOffsets 
+                && m_OffsetEditMode != TimelineAnimationUtilities.OffsetEditMode.None)
             {
                 var boundObject = TimelineUtility.GetSceneGameObject(timelineWindow.state.editSequence.director, animationTrack);
                 var boundObjectTransform = boundObject != null ? boundObject.transform : null;
 
                 var offsets = TimelineAnimationUtilities.GetTrackOffsets(animationTrack, boundObjectTransform);
+                if (animationTrack.trackOffset == TrackOffset.ApplyLocalTransformOffsets)
+                {
+                    PlayableDirector director = this.m_Context as PlayableDirector;
+                    if (director != null) //transform to world space
+                    {
+                        var directorTransform = director.transform;
+                        var (pos, rot) = AnimationTrack.ApplyTransformRotationAndPosOffset(offsets.position, offsets.rotation, directorTransform);
+                        offsets.position = pos;
+                        offsets.rotation = rot;
+                        // Debug.Log($"Director rot {directorTransform.rotation} pos {directorTransform.position} / final {offsets.rotation}/{offsets.position}", director.gameObject);
+                    }
+                }
+                
                 EditorGUI.BeginChangeCheck();
 
                 switch (m_OffsetEditMode)
@@ -412,6 +427,22 @@ namespace UnityEditor.Timeline
                 if (EditorGUI.EndChangeCheck())
                 {
                     UndoExtensions.RegisterTrack(animationTrack, L10n.Tr("Inspector"));
+                    
+                    if (animationTrack.trackOffset == TrackOffset.ApplyLocalTransformOffsets) //need to transform back to local space
+                    {
+                        PlayableDirector director = this.m_Context as PlayableDirector;
+                        if (director != null)
+                        {
+                            var directorTransform = director.transform;
+                            var invRot = Quaternion.Inverse(directorTransform.rotation);
+                            offsets.rotation *= invRot;//Invert rotation to localspace
+                            offsets.position -= directorTransform.position;//remove director world position offset;
+                            offsets.position = invRot*offsets.position;//Invert rotation of director in to local space
+                            // Debug.Log($"Director rot {directorTransform.rotation} pos {directorTransform.position} / final {offsets.rotation}/{offsets.position}", director.gameObject);
+                        }
+                    }
+
+                    
                     TimelineAnimationUtilities.UpdateTrackOffset(animationTrack, boundObjectTransform, offsets);
                     Evaluate();
                     Repaint();

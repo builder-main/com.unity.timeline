@@ -256,6 +256,10 @@ namespace UnityEditor.Timeline
             var trackToClip = TimelineAnimationUtilities.RigidTransform.identity;
             if (track.trackOffset == TrackOffset.ApplyTransformOffsets)
                 trackToClip = TimelineAnimationUtilities.RigidTransform.Compose(track.position, track.rotation);
+            else if (track.trackOffset == TrackOffset.ApplyLocalTransformOffsets)
+            {
+                trackToClip = TimelineAnimationUtilities.RigidTransform.Compose(track.position, track.rotation);
+            }
             else if (track.trackOffset == TrackOffset.ApplySceneOffsets)
                 trackToClip = TimelineAnimationUtilities.RigidTransform.Compose(track.sceneOffsetPosition, Quaternion.Euler(track.sceneOffsetRotation));
 
