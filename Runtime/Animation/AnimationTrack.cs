@@ -821,9 +821,10 @@ namespace UnityEngine.Timeline
 
         internal static (Vector3 pos, Quaternion rot) ApplyTransformRotationAndPosOffset(Vector3 pos, Quaternion rot, Transform toApply)
         {
-            pos = toApply.rotation*pos;//Add director world space rotation
+            var applyRotation = toApply.rotation;
+            pos = applyRotation*pos;//Add director world space rotation
             pos += toApply.position;//add director world position offset;
-            rot *= toApply.rotation;//Apply director world rotation offset
+            rot *= applyRotation;//Apply director world rotation offset
             return (pos, rot);
         }
         
@@ -833,7 +834,7 @@ namespace UnityEngine.Timeline
 #if UNITY_EDITOR
             m_ClipOffset = AnimationOffsetPlayable.Null;
 #endif
-
+            Debug.Log($"AnimationTrack.ApplyTrackOffset() Apply track offset : {go.name}", go);
             // offsets don't apply in scene offset, or if there is no root transform (globally or on this track)
             if (mode == AppliedOffsetMode.SceneOffsetLegacy ||
                 mode == AppliedOffsetMode.SceneOffset ||
@@ -851,6 +852,8 @@ namespace UnityEngine.Timeline
                 var director = go.GetComponent<PlayableDirector>();
                 if (director != null)
                 {
+                    Debug.Log($"AnimationTrack.ApplyTrackOffset() Apply director offset : {director.transform.position} /  {director.transform.eulerAngles}", director.gameObject);
+                                       
                     (pos, rot) = ApplyTransformRotationAndPosOffset(pos, rot, director.transform);
                 }
             }

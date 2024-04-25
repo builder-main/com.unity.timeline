@@ -406,7 +406,7 @@ namespace UnityEditor.Timeline
                         var (pos, rot) = AnimationTrack.ApplyTransformRotationAndPosOffset(offsets.position, offsets.rotation, directorTransform);
                         offsets.position = pos;
                         offsets.rotation = rot;
-                        // Debug.Log($"Director rot {directorTransform.rotation} pos {directorTransform.position} / final {offsets.rotation}/{offsets.position}", director.gameObject);
+                        Debug.Log($"Director rot {directorTransform.rotation} pos {directorTransform.position} / final {offsets.rotation}/{offsets.position}", director.gameObject);
                     }
                 }
                 
